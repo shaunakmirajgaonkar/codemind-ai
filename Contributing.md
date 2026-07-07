@@ -1,4 +1,3 @@
-cat > CONTRIBUTING.md << 'EOF'
 # Contributing to CodeMind AI
 
 Thanks for your interest in improving CodeMind AI.
