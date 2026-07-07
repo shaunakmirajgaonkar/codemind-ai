@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: codemind_postgres
+    environment:
+      POSTGRES_USER: codemind
+      POSTGRES_PASSWORD: codemind
+      POSTGRES_DB: codemind
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U codemind"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # NOTE: Ollama is expected to run natively on your host (Mac) for GPU/Metal
+  # acceleration -> `brew install ollama && ollama pull phi3`.
+  # Uncomment below only if you'd rather run Ollama inside Docker (CPU-only, slower).
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: codemind_ollama
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+
+  codemind:
+    build: .
+    container_name: codemind_app
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://codemind:codemind@postgres:5432/codemind
+      OLLAMA_HOST: http://host.docker.internal:11434
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./storage:/app/storage
+
+volumes:
+  pgdata:
+  ollama_data:

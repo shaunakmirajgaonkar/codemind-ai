@@ -1,0 +1,19 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Environment
+.env
+
+# Local data (never commit — contains indexed code, chat history, generated artifacts)
+storage/
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/

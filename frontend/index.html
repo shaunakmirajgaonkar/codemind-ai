@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>CodeMind AI</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --border: #30363d;
+    --text: #c9d1d9; --muted: #8b949e; --accent: #58a6ff; --accent2: #3fb950;
+    --danger: #f85149; --warn: #d29922;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+         background: var(--bg); color: var(--text); }
+  header { padding: 16px 24px; border-bottom: 1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  header h1 { font-size: 18px; margin:0; }
+  header h1 span { color: var(--accent); }
+  .layout { display:flex; height: calc(100vh - 57px); }
+  nav { width: 210px; border-right: 1px solid var(--border); padding: 16px 8px; overflow-y:auto; }
+  nav button { display:block; width:100%; text-align:left; padding:10px 12px; margin-bottom:4px;
+               background:none; border:none; color: var(--muted); border-radius:6px; cursor:pointer; font-size:14px; }
+  nav button:hover { background: var(--panel); color: var(--text); }
+  nav button.active { background: #1f2937; color: var(--accent); font-weight:600; }
+  main { flex:1; padding: 24px; overflow-y:auto; }
+  .panel { display:none; max-width: 980px; }
+  .panel.active { display:block; }
+  h2 { margin-top:0; font-size: 20px; }
+  label { display:block; font-size:13px; color: var(--muted); margin: 12px 0 4px; }
+  input, select, textarea { width:100%; padding:10px; background:var(--panel); border:1px solid var(--border);
+    border-radius:6px; color:var(--text); font-family: "SF Mono", Monaco, monospace; font-size:13px; }
+  textarea { min-height: 160px; resize: vertical; }
+  button.btn { background: var(--accent); color:#0d1117; border:none; padding:10px 18px; border-radius:6px;
+    font-weight:600; cursor:pointer; margin-top:14px; font-size:14px; }
+  button.btn:hover { opacity:0.9; }
+  button.btn.secondary { background: var(--panel); color: var(--text); border:1px solid var(--border); }
+  .output { margin-top:20px; background: var(--panel); border:1px solid var(--border); border-radius:8px;
+    padding:16px; white-space:pre-wrap; font-family:"SF Mono", Monaco, monospace; font-size:13px; line-height:1.6; }
+  .row { display:flex; gap:12px; }
+  .row > div { flex:1; }
+  .repo-card { background: var(--panel); border:1px solid var(--border); border-radius:8px; padding:14px; margin-bottom:10px; }
+  .repo-card h3 { margin:0 0 6px; font-size:15px; }
+  .repo-card .meta { color: var(--muted); font-size:12px; }
+  .badge { display:inline-block; background:#1f2937; color:var(--accent); padding:2px 8px; border-radius:10px; font-size:11px; margin-right:6px; }
+  .loading { color: var(--warn); }
+  .error { color: var(--danger); }
+  .severity-critical, .severity-high { color: var(--danger); }
+  .severity-medium { color: var(--warn); }
+  .severity-low { color: var(--accent2); }
+  #mermaid-container { background:white; border-radius:8px; padding:16px; margin-top:16px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Code<span>Mind</span> AI &mdash; Local Code Intelligence Platform</h1>
+  <div class="meta" style="color:var(--muted); font-size:12px;">100% local &middot; Ollama + ChromaDB + FastAPI</div>
+</header>
+
+<div class="layout">
+  <nav>
+    <button data-panel="repos" class="active">📁 Repositories</button>
+    <button data-panel="chat">💬 Repo Chat</button>
+    <button data-panel="explain">🔍 Explain Code</button>
+    <button data-panel="generate">✨ Generate Code</button>
+    <button data-panel="bugs">🐛 Bug Detection</button>
+    <button data-panel="review">✅ Code Review</button>
+    <button data-panel="tests">🧪 Test Generation</button>
+    <button data-panel="docs">📝 Documentation</button>
+    <button data-panel="architecture">🗺️ Architecture</button>
+  </nav>
+
+  <main>
+    <!-- REPOS -->
+    <section class="panel active" id="panel-repos">
+      <h2>Repositories</h2>
+      <label>Repository name</label>
+      <input id="repo-name" placeholder="my-project" />
+      <label>Source (local path or Git URL)</label>
+      <input id="repo-source" placeholder="/Users/you/code/my-project  or  https://github.com/user/repo.git" />
+      <button class="btn" onclick="indexRepo()">Index Repository</button>
+      <div id="repo-index-status"></div>
+      <h2 style="margin-top:32px;">Indexed Repositories</h2>
+      <div id="repo-list"></div>
+    </section>
+
+    <!-- CHAT -->
+    <section class="panel" id="panel-chat">
+      <h2>Repo-Aware Chat</h2>
+      <label>Repository</label>
+      <select id="chat-repo"></select>
+      <label>Question</label>
+      <textarea id="chat-query" placeholder="How does authentication work in this codebase?"></textarea>
+      <button class="btn" onclick="runChat()">Ask</button>
+      <div id="chat-output" class="output" style="display:none;"></div>
+    </section>
+
+    <!-- EXPLAIN -->
+    <section class="panel" id="panel-explain">
+      <h2>Explain Code</h2>
+      <div class="row">
+        <div>
+          <label>Language</label>
+          <select id="explain-lang">
+            <option>python</option><option>javascript</option><option>typescript</option>
+            <option>java</option><option>go</option><option>rust</option><option>cpp</option>
+          </select>
+        </div>
+      </div>
+      <label>Paste code</label>
+      <textarea id="explain-code"></textarea>
+      <button class="btn" onclick="runExplain()">Explain</button>
+      <div id="explain-output" class="output" style="display:none;"></div>
+    </section>
+
+    <!-- GENERATE -->
+    <section class="panel" id="panel-generate">
+      <h2>Generate Code</h2>
+      <label>Repository (optional — matches existing conventions)</label>
+      <select id="gen-repo"><option value="">(none)</option></select>
+      <div class="row">
+        <div>
+          <label>Language</label>
+          <select id="gen-lang">
+            <option>python</option><option>javascript</option><option>typescript</option>
+            <option>java</option><option>go</option><option>rust</option>
+          </select>
+        </div>
+      </div>
+      <label>Instruction</label>
+      <textarea id="gen-instruction" placeholder="Write a function that validates an email address"></textarea>
+      <button class="btn" onclick="runGenerate()">Generate</button>
+      <div id="gen-output" class="output" style="display:none;"></div>
+    </section>
+
+    <!-- BUGS -->
+    <section class="panel" id="panel-bugs">
+      <h2>Bug Detection</h2>
+      <label>Language</label>
+      <select id="bugs-lang">
+        <option>python</option><option>javascript</option><option>typescript</option>
+        <option>java</option><option>go</option>
+      </select>
+      <label>Paste code</label>
+      <textarea id="bugs-code"></textarea>
+      <button class="btn" onclick="runBugs()">Analyze</button>
+      <div id="bugs-output" class="output" style="display:none;"></div>
+    </section>
+
+    <!-- REVIEW -->
+    <section class="panel" id="panel-review">
+      <h2>Code Review</h2>
+      <label>Language</label>
+      <select id="review-lang">
+        <option>python</option><option>javascript</option><option>typescript</option>
+        <option>java</option><option>go</option>
+      </select>
+      <label>Paste code</label>
+      <textarea id="review-code"></textarea>
+      <button class="btn" onclick="runReview()">Review</button>
+      <div id="review-output" class="output" style="display:none;"></div>
+    </section>
+
+    <!-- TESTS -->
+    <section class="panel" id="panel-tests">
+      <h2>Unit Test Generation</h2>
+      <label>Language</label>
+      <select id="tests-lang">
+        <option>python</option><option>javascript</option><option>typescript</option>
+        <option>java</option><option>go</option>
+      </select>
+      <label>Paste code</label>
+      <textarea id="tests-code"></textarea>
+      <button class="btn" onclick="runTests()">Generate Tests</button>
+      <div id="tests-output" class="output" style="display:none;"></div>
+    </section>
+
+    <!-- DOCS -->
+    <section class="panel" id="panel-docs">
+      <h2>Documentation Generation</h2>
+      <label>Language</label>
+      <select id="docs-lang">
+        <option>python</option><option>javascript</option><option>typescript</option>
+        <option>java</option><option>go</option>
+      </select>
+      <label>Paste code</label>
+      <textarea id="docs-code"></textarea>
+      <button class="btn" onclick="runDocs()">Add Docstrings</button>
+      <div id="docs-output" class="output" style="display:none;"></div>
+    </section>
+
+    <!-- ARCHITECTURE -->
+    <section class="panel" id="panel-architecture">
+      <h2>Architecture &amp; Dependency Analysis</h2>
+      <label>Repository</label>
+      <select id="arch-repo"></select>
+      <button class="btn" onclick="runArchitecture()">Analyze</button>
+      <div id="arch-output" class="output" style="display:none;"></div>
+      <div id="mermaid-container" style="display:none;"><div class="mermaid" id="mermaid-diagram"></div></div>
+    </section>
+  </main>
+</div>
+
+<script>
+mermaid.initialize({ startOnLoad: false, theme: 'default' });
+const API = "";
+
+document.querySelectorAll('nav button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.panel).classList.add('active');
+    if (btn.dataset.panel !== 'repos') loadRepoDropdowns();
+  });
+});
+
+async function postJSON(url, body) {
+  const res = await fetch(API + url, {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+  });
+  if (!res.ok) { const t = await res.text(); throw new Error(t); }
+  return res.json();
+}
+
+async function getJSON(url) {
+  const res = await fetch(API + url);
+  if (!res.ok) { const t = await res.text(); throw new Error(t); }
+  return res.json();
+}
+
+function showOutput(id, text, isError=false) {
+  const el = document.getElementById(id);
+  el.style.display = 'block';
+  el.className = 'output' + (isError ? ' error' : '');
+  el.textContent = text;
+}
+
+// ---------- Repos ----------
+async function indexRepo() {
+  const name = document.getElementById('repo-name').value.trim();
+  const source = document.getElementById('repo-source').value.trim();
+  if (!name || !source) return alert('Please provide both name and source.');
+  const statusEl = document.getElementById('repo-index-status');
+  statusEl.innerHTML = '<p class="loading">Indexing... this may take a minute for large repos.</p>';
+  try {
+    const result = await postJSON('/api/repos', {name, source});
+    statusEl.innerHTML = `<p>✅ Indexed <b>${result.name}</b>: ${result.total_files} files, ${result.total_chunks} chunks in ${result.duration_seconds}s</p>`;
+    loadRepoList();
+  } catch (e) {
+    statusEl.innerHTML = `<p class="error">Error: ${e.message}</p>`;
+  }
+}
+
+async function loadRepoList() {
+  const listEl = document.getElementById('repo-list');
+  try {
+    const repos = await getJSON('/api/repos');
+    listEl.innerHTML = repos.map(r => `
+      <div class="repo-card">
+        <h3>${r.name}</h3>
+        <div class="meta">${r.total_files} files &middot; ${r.total_chunks} chunks &middot; ${r.source_path}</div>
+        <div style="margin-top:8px;">
+          ${Object.entries(r.language_summary || {}).map(([lang,c]) => `<span class="badge">${lang}: ${c}</span>`).join('')}
+        </div>
+      </div>
+    `).join('') || '<p class="meta">No repositories indexed yet.</p>';
+  } catch(e) { listEl.innerHTML = `<p class="error">${e.message}</p>`; }
+}
+
+async function loadRepoDropdowns() {
+  const repos = await getJSON('/api/repos');
+  const opts = repos.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+  ['chat-repo','arch-repo'].forEach(id => { document.getElementById(id).innerHTML = opts || '<option value="">No repos indexed</option>'; });
+  document.getElementById('gen-repo').innerHTML = '<option value="">(none)</option>' + opts;
+}
+
+// ---------- Chat ----------
+async function runChat() {
+  const repo_id = document.getElementById('chat-repo').value;
+  const query = document.getElementById('chat-query').value.trim();
+  if (!query) return;
+  showOutput('chat-output', 'Thinking...');
+  try {
+    const r = await postJSON('/api/chat', {query, repo_id});
+    showOutput('chat-output', r.answer + `\n\n[latency: ${r.latency_ms}ms, revised: ${r.revised}]`);
+  } catch(e) { showOutput('chat-output', e.message, true); }
+}
+
+// ---------- Explain ----------
+async function runExplain() {
+  const code = document.getElementById('explain-code').value;
+  const language = document.getElementById('explain-lang').value;
+  if (!code.trim()) return;
+  showOutput('explain-output', 'Analyzing...');
+  try {
+    const r = await postJSON('/api/code/explain', {code, language});
+    showOutput('explain-output', r.explanation);
+  } catch(e) { showOutput('explain-output', e.message, true); }
+}
+
+// ---------- Generate ----------
+async function runGenerate() {
+  const instruction = document.getElementById('gen-instruction').value.trim();
+  const language = document.getElementById('gen-lang').value;
+  const repo_id = document.getElementById('gen-repo').value || null;
+  if (!instruction) return;
+  showOutput('gen-output', 'Generating...');
+  try {
+    const r = await postJSON('/api/code/generate', {instruction, language, repo_id});
+    showOutput('gen-output', r.code);
+  } catch(e) { showOutput('gen-output', e.message, true); }
+}
+
+// ---------- Bugs ----------
+async function runBugs() {
+  const code = document.getElementById('bugs-code').value;
+  const language = document.getElementById('bugs-lang').value;
+  if (!code.trim()) return;
+  showOutput('bugs-output', 'Scanning for issues...');
+  try {
+    const r = await postJSON('/api/code/bugs', {code, language});
+    const findings = r.findings || [];
+    if (!findings.length) { showOutput('bugs-output', '✅ No issues detected.'); return; }
+    const text = findings.map(f => `[${f.severity.toUpperCase()}] ${f.line_hint}\n${f.issue}\n→ Fix: ${f.suggested_fix}`).join('\n\n');
+    showOutput('bugs-output', text);
+  } catch(e) { showOutput('bugs-output', e.message, true); }
+}
+
+// ---------- Review ----------
+async function runReview() {
+  const code = document.getElementById('review-code').value;
+  const language = document.getElementById('review-lang').value;
+  if (!code.trim()) return;
+  showOutput('review-output', 'Reviewing...');
+  try {
+    const r = await postJSON('/api/code/review', {code, language});
+    let text = `Score: ${r.overall_score}/100\n\n${r.summary}\n\nStrengths:\n${(r.strengths||[]).map(s=>'- '+s).join('\n')}\n\nIssues:\n`;
+    text += (r.issues||[]).map(i => `[${i.severity}/${i.category}] ${i.comment}\n→ ${i.suggestion}`).join('\n\n');
+    showOutput('review-output', text);
+  } catch(e) { showOutput('review-output', e.message, true); }
+}
+
+// ---------- Tests ----------
+async function runTests() {
+  const code = document.getElementById('tests-code').value;
+  const language = document.getElementById('tests-lang').value;
+  if (!code.trim()) return;
+  showOutput('tests-output', 'Generating tests...');
+  try {
+    const r = await postJSON('/api/code/tests', {code, language});
+    showOutput('tests-output', r.tests);
+  } catch(e) { showOutput('tests-output', e.message, true); }
+}
+
+// ---------- Docs ----------
+async function runDocs() {
+  const code = document.getElementById('docs-code').value;
+  const language = document.getElementById('docs-lang').value;
+  if (!code.trim()) return;
+  showOutput('docs-output', 'Adding documentation...');
+  try {
+    const r = await postJSON('/api/code/docs', {code, language});
+    showOutput('docs-output', r.documented_code);
+  } catch(e) { showOutput('docs-output', e.message, true); }
+}
+
+// ---------- Architecture ----------
+async function runArchitecture() {
+  const repo_id = document.getElementById('arch-repo').value;
+  if (!repo_id) return alert('Index a repository first.');
+  showOutput('arch-output', 'Analyzing architecture...');
+  document.getElementById('mermaid-container').style.display = 'none';
+  try {
+    const r = await getJSON(`/api/architecture/${repo_id}`);
+    let text = `Modules: ${r.total_modules} | Internal dependencies: ${r.total_dependencies}\n\n`;
+    text += `Most depended-on modules:\n${r.most_depended_on_modules.map(([m,n]) => `  ${m}: ${n} dependents`).join('\n')}\n\n`;
+    if (r.circular_dependencies.length) text += `⚠️ Circular dependencies found:\n${r.circular_dependencies.map(c=>c.join(' → ')).join('\n')}\n\n`;
+    text += `\n${r.narrative_summary}`;
+    showOutput('arch-output', text);
+
+    const mermaidEl = document.getElementById('mermaid-diagram');
+    mermaidEl.removeAttribute('data-processed');
+    mermaidEl.textContent = r.mermaid_diagram;
+    document.getElementById('mermaid-container').style.display = 'block';
+    mermaid.run({ nodes: [mermaidEl] });
+  } catch(e) { showOutput('arch-output', e.message, true); }
+}
+
+loadRepoList();
+loadRepoDropdowns();
+</script>
+</body>
+</html>
